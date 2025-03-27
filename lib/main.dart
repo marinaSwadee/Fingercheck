@@ -3,6 +3,7 @@ import 'package:fingerprintt/CheckIn.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'LoginScreen.dart';
 
@@ -32,6 +33,7 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
+  bool isPhoneFieldDisabled = false;
   String location = "لم يتم تحديد الموقع بعد";
   String attendanceStatus = "لم يتم تسجيل الحضور";
   String phoneNumber = "";
@@ -40,18 +42,87 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool isPhoneEntered = false;
   bool isInHouseSelected = false;
   bool isWorkFromHomeSelected = false;
-
+  bool isPhoneValid = false;
   TextEditingController phoneController = TextEditingController();
 
   final double targetLatitude = 30.063621754863313;
   final double targetLongitude = 31.343651564417925;
   final double allowedRadius = 500;
 
+
+  Future<void> savePhoneLocally(String phone) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('locked_phone', phone);
+  }
+
+  Future<void> loadSavedPhone() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? savedPhone = prefs.getString('locked_phone');
+    if (savedPhone != null && savedPhone.isNotEmpty) {
+      setState(() {
+        phoneNumber = savedPhone;
+        phoneController.text = savedPhone;
+        isPhoneFieldDisabled = true;
+        isPhoneValid = true;
+      });
+    }
+  }
+
+
   void updatePhoneNumber(String value) {
     setState(() {
       phoneNumber = value;
       isPhoneEntered = phoneNumber.length == 11;
     });
+  }
+
+
+  Future<void> loginUser(BuildContext context, String phoneNumber) async {
+    final String url = 'https://romamph.com/backend/api/employee';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"phone": phoneNumber}),
+      );
+
+      print("📌 Response Status: ${response.statusCode}");
+      print("📌 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        // ✅ التأكد من وجود بيانات داخل `data`
+        if (jsonResponse["status"] == "success" && jsonResponse["data"] is List && jsonResponse["data"].isNotEmpty) {
+          final Map<String, dynamic> userData = jsonResponse["data"][0]; // استخراج أول عنصر من `data`
+
+          // ✅ اقفل حقل التليفون وخزّن الرقم
+          setState(() {
+            isPhoneFieldDisabled = true;
+          });
+          await savePhoneLocally(phoneNumber);
+
+          // ✅ الانتقال لصفحة CheckIn
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => CheckIn(data: userData)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("❌ لم يتم العثور على بيانات لهذا الرقم!")),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("❌ فشل تسجيل الدخول: ${response.body}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ حدث خطأ: ${e.toString()}")),
+      );
+    }
   }
 
   void selectInHouse() {
@@ -103,15 +174,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       location = "📍 الموقع الحالي تم تحديده";
       if (distance <= allowedRadius) {
         attendanceStatus = "✅ المستخدم داخل النطاق المسموح (${distance.toStringAsFixed(2)} متر)";
-        sendAttendanceToBackend(position.latitude, position.longitude, type);
+        sendAttendanceToBackend(position.latitude, position.longitude, type, isInHouseSelected ? "In-Site" : "Work From Home");
       } else {
         attendanceStatus = "❌ المستخدم خارج النطاق (${distance.toStringAsFixed(2)} متر)";
       }
     });
   }
 
-  Future<void> sendAttendanceToBackend(double lat, double long, String attendType) async {
-    final String url = 'https://backend.romamph.com/api/test-attend-emp';
+  Future<void> sendAttendanceToBackend(double lat, double long, String attendType, String Worktype) async {
+    final String url = 'https://romamph.com/backend/api/v2-fingerPrint';
 
     try {
       final response = await http.post(
@@ -119,9 +190,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           "phone": phoneNumber,
-          'lat': lat.toString(),
-          'long': long.toString(),
           "attend_check": attendType,
+          "work_place": Worktype,
         }),
       );
 
@@ -130,10 +200,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           attendanceStatus = "✅ تم تسجيل $attendType بنجاح!";
           if (attendType == "checkIn") {
             isCheckInDisabled = true;
+            isPhoneFieldDisabled = true; // ✅ قفل الحقل بعد Check In
           } else if (attendType == "checkOut") {
             isCheckOutDisabled = true;
           }
-        });
+    });
       } else {
         setState(() {
           attendanceStatus = "❌ فشل في تسجيل $attendType!";
@@ -146,13 +217,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  bool isPhoneValid = false; // ✅ للتحقق من صحة الرقم
-
-  /// **📌 التحقق من صحة الرقم المدخل**
   void validatePhoneNumber(String value) {
     setState(() {
       isPhoneValid = RegExp(r'^[0-9]{11}$').hasMatch(value); // ✅ يجب أن يكون 11 رقمًا
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadSavedPhone();
   }
 
 
@@ -163,7 +237,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         children: [
           // الخلفية
           Positioned.fill(
-            child: Image.asset("assets/images/frame.png", fit: BoxFit.cover)
+            child: Image.asset("assets/images/Login.png", fit: BoxFit.cover)
 
           ),
 
@@ -225,10 +299,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       children: [
                         /// **📌 حقل إدخال رقم الهاتف**
                         TextField(
-
                           controller: phoneController,
+                          enabled: !isPhoneFieldDisabled, // ✅ ده اللي بيقفل الحقل
                           keyboardType: TextInputType.number,
-                          maxLength: 11, // ✅ يمنع المستخدم من إدخال أكثر من 11 رقمًا
+                          maxLength: 11,
                           decoration: InputDecoration(
                             labelText: " Enter your phone number",
                             labelStyle: TextStyle(
@@ -245,28 +319,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-
-                          onChanged: validatePhoneNumber, // ✅ استدعاء الفحص عند تغيير الإدخال
+                          onChanged: isPhoneFieldDisabled ? null : (value) {
+                            validatePhoneNumber(value);
+                            updatePhoneNumber(value);
+                          },
                         ),
+
+
 
 
                         /// **📌 زر تسجيل الدخول**
                         SizedBox(
-
                           width: 460,
                           height: 50,
                           child: ElevatedButton(
                             onPressed: isPhoneValid
-                                ? () {
-                              // ✅ إذا كان الرقم صحيحًا، انتقل إلى شاشة CheckIn
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => CheckIn()),
-                              );
-                            }
-                                : null, // ✅ تعطيل الزر إذا لم يكن الرقم صحيحًا
+                                ? () => loginUser(context, phoneController.text) // ✅ استدعاء `loginUser`
+                                : null,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isPhoneValid ? Color(0xFF780012) : Colors.grey, // ✅ تغيير لون الزر عند التفعيل
+                              backgroundColor: isPhoneValid ? Color(0xFF780012) : Color(0xFFB5B5B4),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -277,6 +348,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             ),
                           ),
                         ),
+
                       ],
                     ),
                   ),
