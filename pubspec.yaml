@@ -76,6 +76,10 @@ flutter:
      - assets/images/andriod.gif
      - assets/images/iphone.gif
      - assets/images/Login.png
+     - assets/images/User.png
+     - assets/images/FingerPrint.png
+     - assets/images/frame2.png
+     - assets/images/frame1.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

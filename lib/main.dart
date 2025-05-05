@@ -5,12 +5,24 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'LoginScreen.dart';
-
+import 'navbar.dart';
 
 void main() {
   runApp(const AttendanceApp());
 }
+
+// void main() {
+//   runApp(MaterialApp(
+//     debugShowCheckedModeBanner: false,
+//     home: Scaffold(
+//       body: Center(child: Text('Main Content')),
+//       bottomNavigationBar: HomeWrapper(employee: {},), // ← Add your bottom bar here
+//     ),
+//   ));
+// }
+
+
+
 
 class AttendanceApp extends StatelessWidget {
   const AttendanceApp({super.key});
@@ -93,20 +105,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
 
-        // ✅ التأكد من وجود بيانات داخل `data`
-        if (jsonResponse["status"] == "success" && jsonResponse["data"] is List && jsonResponse["data"].isNotEmpty) {
-          final Map<String, dynamic> userData = jsonResponse["data"][0]; // استخراج أول عنصر من `data`
+        if (jsonResponse["status"] == "success" && jsonResponse["employee"] is Map) {
+          final Map<String, dynamic> userData = jsonResponse["employee"];
+          final Map<String, dynamic>? todayData = jsonResponse["attendance_today"];
 
-          // ✅ اقفل حقل التليفون وخزّن الرقم
           setState(() {
             isPhoneFieldDisabled = true;
           });
           await savePhoneLocally(phoneNumber);
 
-          // ✅ الانتقال لصفحة CheckIn
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => CheckIn(data: userData)),
+            MaterialPageRoute(
+              builder: (context) => HomeWrapper(
+                employee: userData,
+                attendanceToday: todayData,
+              ),
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -124,6 +139,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
     }
   }
+
 
   void selectInHouse() {
     setState(() {
@@ -353,78 +369,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ),
                   ),
 
-                  // if (isPhoneEntered) ...[
-                  //   Text(
-                  //     "📍 اختر نوع الحضور",
-                  //     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                  //   ),
-                  //   SizedBox(height: 20),
-                  //   Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     children: [
-                  //       ElevatedButton(
-                  //         onPressed: selectInHouse,
-                  //         style: ElevatedButton.styleFrom(
-                  //           backgroundColor: isInHouseSelected ? Colors.black87 : Colors.grey,
-                  //         ),
-                  //         child: Text("In-Site",style: TextStyle(fontSize: 15 ,fontWeight: FontWeight.bold),),
-                  //       ),
-                  //       SizedBox(width: 20),
-                  //       ElevatedButton(
-                  //         onPressed: selectWorkFromHome,
-                  //         style: ElevatedButton.styleFrom(
-                  //           backgroundColor: isWorkFromHomeSelected ? Colors.black87 : Colors.grey,
-                  //         ),
-                  //         child: Text("Work From Home",style: TextStyle(fontSize: 15 ,fontWeight: FontWeight.bold),),
-                  //       ),
-                  //     ],
-                  //   ),
-                  //   SizedBox(height: 20),
-                  //
-                  //   if (isInHouseSelected) ...[
-                  //     Text(
-                  //       "📍 الموقع الحالي:",
-                  //       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                  //     ),
-                  //     Text(location, style: TextStyle(color: Colors.white)),
-                  //     SizedBox(height: 20),
-                  //     Text(
-                  //       attendanceStatus,
-                  //       style: TextStyle(fontSize: 18, color: Colors.white),
-                  //     ),
-                  //     SizedBox(height: 20),
-                  //     ElevatedButton(
-                  //       onPressed: isCheckInDisabled ? null : () => getLocation("checkIn"),
-                  //       style: ElevatedButton.styleFrom(
-                  //         backgroundColor: isCheckInDisabled ? Colors.grey : Colors.green,
-                  //       ),
-                  //       child: Text(isCheckInDisabled ? '✔ Checked-in' : '✅ Check-in'),
-                  //     ),
-                  //     SizedBox(height: 20),
-                  //     ElevatedButton(
-                  //       onPressed: isCheckOutDisabled ? null : () => getLocation("checkOut"),
-                  //       style: ElevatedButton.styleFrom(
-                  //         backgroundColor: isCheckOutDisabled ? Colors.grey : Colors.red,
-                  //       ),
-                  //       child: Text(isCheckOutDisabled ? '✔ Checked-out' : '✅ Check-out'),
-                  //     ),
-                  //   ],
-                  //
-                  //   if (isWorkFromHomeSelected) ...[
-                  //     Text(
-                  //       "📍 تسجيل الحضور من المنزل",
-                  //       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                  //     ),
-                  //     SizedBox(height: 20),
-                  //     ElevatedButton(
-                  //       onPressed: () => sendAttendanceToBackend(0, 0, "workFromHome"),
-                  //       style: ElevatedButton.styleFrom(
-                  //         backgroundColor: Colors.grey,
-                  //       ),
-                  //       child: Text("Wfh"),
-                  //     ),
-                  //   ],
-                  // ],
+
                 ],
               ),
             ),
