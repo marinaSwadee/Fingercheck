@@ -7,10 +7,12 @@ class HomeWrapper extends StatefulWidget {
   final Map<String, dynamic> employee;
   final Map<String, dynamic>? attendanceToday;
 
+
   const HomeWrapper({
     required this.employee,
     this.attendanceToday,
     Key? key,
+
   }) : super(key: key);
 
   @override
@@ -30,10 +32,10 @@ class _HomeWrapperState extends State<HomeWrapper> {
             employee: widget.employee,
             attendanceToday: widget.attendanceToday,
           ),
-          ProfilePage(),
-
+          ProfilePage(employee: widget.employee), // ✅ هنا التعديل
         ],
       ),
+
       bottomNavigationBar: Container(
         height: 83,
         decoration: BoxDecoration(

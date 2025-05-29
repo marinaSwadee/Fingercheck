@@ -66,19 +66,45 @@ class _AttendanceTableScreenState extends State<AttendanceTableScreen> {
   /// دالة لحساب الوقت الإضافي (overtime) عند Check-out
   String calculateOvertime(String? checkOutTimeUtc) {
     if (checkOutTimeUtc == null) return '00:00:00';
+
     try {
       DateTime checkOutTime = DateTime.parse(checkOutTimeUtc).toLocal();
-      // تحديد وقت 6:00:00 مساءً
+
+      // نجيب checkIn المقابل لنفس المستخدم
+      String? checkInTimeUtc;
+      for (var record in attendanceData) {
+        if (record['attend_check'] == "checkIn" &&
+            _getDate(record['created_at']) == _getDate(checkOutTimeUtc) &&
+            record['name'] == groupedAttendanceData.entries.firstWhere((e) =>
+            e.value['checkOut']?['created_at'] == checkOutTimeUtc,
+                orElse: () => MapEntry('', {})).value['name']) {
+          checkInTimeUtc = record['created_at'];
+          break;
+        }
+      }
+
+      DateTime? checkInTime = checkInTimeUtc != null ? DateTime.parse(checkInTimeUtc).toLocal() : null;
+
+      if (selectedDate.weekday == DateTime.friday || selectedDate.weekday == DateTime.saturday) {
+        if (checkInTime != null) {
+          // احسب الفرق بين checkOut و checkIn
+          Duration diff = checkOutTime.difference(checkInTime);
+          return formatDuration(diff);
+        }
+      }
+
+      // الأيام العادية - احسب الفرق بعد الساعة 6 مساءً
       DateTime threshold = DateTime(checkOutTime.year, checkOutTime.month, checkOutTime.day, 18, 0);
       Duration diff = checkOutTime.isAfter(threshold)
           ? checkOutTime.difference(threshold)
           : Duration.zero;
-      // تنسيق الفرق إلى HH:mm:ss
+
       return formatDuration(diff);
     } catch (e) {
       return '00:00:00';
     }
   }
+
 
   String formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');

@@ -1,10 +1,9 @@
 import 'dart:convert';
-import 'package:fingerprintt/CheckIn.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'Review.dart';
 import 'navbar.dart';
 
 void main() {
@@ -16,9 +15,9 @@ void main() {
 //     debugShowCheckedModeBanner: false,
 //     home: Scaffold(
 //       body: Center(child: Text('Main Content')),
-//       bottomNavigationBar: HomeWrapper(employee: {},), // ← Add your bottom bar here
+//       bottomNavigationBar: CheckIn(employee: {})), // ← Add your bottom bar here
 //     ),
-//   ));
+//   );
 // }
 
 
@@ -32,8 +31,7 @@ class AttendanceApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Attendance App',
-      home: AttendanceScreen(),
-    );
+      home: AttendanceScreen(),);
   }
 }
 
